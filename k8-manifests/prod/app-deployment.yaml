@@ -17,7 +17,7 @@ spec:
       - name: regcred
       containers:
       - name: nodejs-app
-        image: jayyp2op/3-tier-user-platform-project:xyz
+        image: jayyp2op/3-tier-user-platform-project:prod-4a7b890665508c4ce0df5df0d32b77e2c47cc711
         ports:
         - containerPort: 5000
         env:
