@@ -433,7 +433,7 @@ jobs:
 
       - name: Run Trivy image scan (JSON)
         run: |
-          trivy image devopsshack/nodejs-app:${{ github.sha }} \
+          trivy image jayyp2op/3-tier-user-platform-project:${{ github.sha }} \
             --format json \
             --output image-trivy-report.json \
             --severity HIGH,CRITICAL \
@@ -442,7 +442,7 @@ jobs:
 
       - name: Run Trivy image scan (TABLE)
         run: |
-          trivy image devopsshack/nodejs-app:${{ github.sha }} \
+          trivy image jayyp2op/3-tier-user-platform-project:${{ github.sha }} \
             --format table \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
@@ -473,7 +473,7 @@ jobs:
       - name: Generate image SBOM
         uses: anchore/sbom-action@v0
         with:
-          image: devopsshack/nodejs-app:${{ github.sha }}
+          image: jayyp2op/3-tier-user-platform-project:${{ github.sha }}
           format: spdx-json
           output-file: image-sbom.spdx.json
           upload-artifact: true  
@@ -483,6 +483,6 @@ jobs:
         with:
           push: true
           tags: |
-            devopsshack/nodejs-app:${{ github.sha }}
-            devopsshack/nodejs-app:latest
+            jayyp2op/3-tier-user-platform-project:${{ github.sha }}
+            jayyp2op/3-tier-user-platform-project:latest
 #test
