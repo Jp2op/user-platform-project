@@ -559,3 +559,4 @@ jobs:
       - name: Verify rollout
         run: |
           kubectl rollout status deployment/nodejs-app -n "${K8S_NAMESPACE}" --timeout=180s
+#test
