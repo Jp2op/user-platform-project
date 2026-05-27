@@ -1,0 +1,334 @@
+name: Enterprise DevSecOps CICD Pipeline
+on:
+  push:
+    branches:
+      - qa
+    paths:
+      - client/**
+      - server/**
+      - .github/workflows/qa-cicd.yml
+permissions:
+  contents: write
+  id-token: write
+  
+jobs:
+  gitleaks-scan:
+    name: Gitleaks Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks Scan
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            zricethezav/gitleaks:latest detect \
+            --source=/repo \
+            --report-format=json \
+            --report-path=/repo/gitleaks-report.json \
+            --redact \
+            --exit-code 0
+            
+      - name: Upload Gitleaks report
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          if-no-files-found: warn
+
+  checkov-terraform:
+    name: Checkov Terraform Scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Checkov
+        run: pip install checkov
+      - name: Run Checkov Terraform scan
+        run: |
+          checkov -d . \
+            --framework terraform \
+            --output json > checkov-terraform-report.json || true
+      - name: Upload Checkov Terraform report
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-terraform-report
+          path: checkov-terraform-report.json
+          if-no-files-found: warn
+
+  checkov-k8s:
+    name: Checkov Kubernetes Scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Checkov
+        run: pip install checkov
+      - name: Run Checkov Kubernetes scan
+        run: |
+          checkov -d . \
+            --framework kubernetes \
+            --output json > checkov-k8s-report.json || true
+      - name: Upload Checkov Kubernetes report
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-k8s-report
+          path: checkov-k8s-report.json
+          if-no-files-found: warn
+
+  checkov-dockerfile:
+    name: Checkov Dockerfile Scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Checkov
+        run: pip install checkov
+      - name: Run Checkov Dockerfile scan
+        run: |
+          checkov -d . \
+            --framework dockerfile \
+            --output json > checkov-dockerfile-report.json || true
+      - name: Upload Checkov Dockerfile report
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-dockerfile-report
+          path: checkov-dockerfile-report.json
+          if-no-files-found: warn
+
+
+  client-trivy-fs:
+    name: Client Trivy FS Scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+        with:
+          version: latest
+          cache: true
+
+      - name: Verify Trivy installation
+        run: |
+          trivy --version
+          which trivy
+      
+      - name: Run Trivy FS scan on client (JSON)
+        run: |
+          trivy fs ./client \
+            --format json \
+            --output client-trivy-fs-report.json \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0
+
+      - name: Run Trivy FS scan on client (TABLE)
+        run: |
+          trivy fs ./client \
+            --format table \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0 > client-trivy-fs-report.txt    
+  
+      - name: Upload Client Trivy JSON report
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-trivy-fs-json-report
+          path: client-trivy-fs-report.json
+          if-no-files-found: warn
+
+      - name: Upload Client Trivy TABLE report
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-trivy-fs-table-report
+          path: client-trivy-fs-report.txt
+          if-no-files-found: warn
+
+  server-trivy-fs:
+    name: Server Trivy FS Scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+        with:
+          version: latest
+          cache: true
+
+      - name: Verify Trivy installation
+        run: |
+          trivy --version
+          which trivy
+
+      - name: Run Trivy FS scan on server (JSON)
+        run: |
+          trivy fs ./server \
+            --format json \
+            --output server-trivy-fs-report.json \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0
+
+      - name: Run Trivy FS scan on server (TABLE)
+        run: |
+          trivy fs ./server \
+            --format table \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0 > server-trivy-fs-report.txt
+
+      - name: Upload Server Trivy JSON report
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-trivy-fs-json-report
+          path: server-trivy-fs-report.json
+          if-no-files-found: warn
+
+      - name: Upload Server Trivy TABLE report
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-trivy-fs-table-report
+          path: server-trivy-fs-report.txt
+          if-no-files-found: warn
+
+
+  client-lint:
+    name: Client Lint
+    runs-on: ubuntu-latest
+    needs:
+      - client-trivy-fs
+      - checkov-k8s
+      - checkov-dockerfile
+      - checkov-terraform
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Run client lint
+        run: npm run lint --if-present
+        continue-on-error: true
+
+  server-lint:
+    name: Server Lint
+    runs-on: ubuntu-latest
+    needs:
+      - server-trivy-fs
+      - checkov-k8s
+      - checkov-dockerfile
+      - checkov-terraform
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci
+
+      - name: Run server lint
+        run: npm run lint --if-present
+        continue-on-error: true
+
+
+  client-test:
+    name: Client Test
+    runs-on: ubuntu-latest
+    needs: client-lint
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Run client tests
+        run: npm test --if-present
+        continue-on-error: true
+
+  server-test:
+    name: Server Test
+    runs-on: ubuntu-latest
+    needs: server-lint
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci
+
+      - name: Run server tests
+        run: npm test --if-present
+        continue-on-error: true
