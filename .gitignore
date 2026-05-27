@@ -141,3 +141,11 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# IAM / secret policy files
+eks-describe-cluster-policy.json
+eso-secrets-policy.json
+github-oidc-trust-fixed.json
+github-oidc-trust.json
+iam_policy.json
+mysql-secret.json
