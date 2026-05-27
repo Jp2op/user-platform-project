@@ -6,7 +6,7 @@ on:
     paths:
       - client/**
       - server/**
-      - .github/workflows/qa-cicd.yml
+      - .github/workflows/qa-cicd.yaml
 permissions:
   contents: write
   id-token: write
